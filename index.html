@@ -1,0 +1,1480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Pré-avaliação de Dor — Pilates Clínico Lívia Rocha</title>
+
+    <!-- Tailwind via CDN (dev). Para produção, ideal Vite/PostCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .muted{ color: rgb(100 116 139); }
+        input[type=range]{ width:100%; }
+        textarea{ resize: vertical; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+<div class="min-h-screen flex flex-col">
+
+    <!-- HEADER: marca + barra de progresso -->
+    <header class="bg-white border-b">
+        <div class="max-w-md mx-auto px-6 py-4 flex items-center justify-between gap-4">
+            <div>
+                <div id="phaseLabel"
+                     class="text-[11px] uppercase tracking-wide text-slate-400">
+                    Pré-avaliação de Dor
+                </div>
+                <div class="font-semibold text-base">
+                    Pilates Clínico Lívia Rocha
+                </div>
+            </div>
+            <div class="flex-1">
+                <div class="w-full bg-slate-200 rounded-full h-1.5">
+                    <div id="progressBar"
+                         class="h-1.5 rounded-full bg-indigo-600 transition-all"
+                         style="width:0%">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTEÚDO -->
+    <main class="flex-1">
+        <div class="max-w-md mx-auto px-6 pt-8 pb-32">
+            <!-- badge / etapa -->
+            <div class="mb-4 flex items-center gap-3">
+                <div id="stepBadge"
+                     class="shrink-0 w-9 h-9 rounded-full bg-indigo-600 text-white
+                            grid place-items-center text-sm font-semibold">
+                    1
+                </div>
+                <div class="text-xs uppercase tracking-wide text-slate-500">
+                    Consulta de pré-avaliação
+                </div>
+            </div>
+
+            <!-- título + remark -->
+            <h1 id="title" class="text-2xl font-semibold leading-snug">...</h1>
+            <p id="help" class="muted mt-2"></p>
+
+            <!-- respostas -->
+            <form id="formStep" class="mt-6">
+                <div id="answers" class="space-y-3"></div>
+            </form>
+
+            <!-- texto educativo curto -->
+            <div id="edu" class="mt-4 text-sm text-slate-600"></div>
+
+            <!-- botões “técnicos” -->
+            <div class="mt-6 flex items-center justify-end gap-2 text-xs text-slate-500">
+                <button id="btnExport" type="button"
+                        class="px-3 py-1 rounded-xl border border-slate-200 hover:bg-slate-100">
+                    Exportar JSON
+                </button>
+                <button id="btnReset" type="button"
+                        class="px-3 py-1 rounded-xl border border-slate-200 hover:bg-slate-100">
+                    Resetar
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER FIXO: navegação principal -->
+    <footer class="sticky bottom-0 bg-white border-t z-30">
+        <div class="max-w-md mx-auto px-6 py-3 space-y-2">
+            <div class="flex items-center gap-3">
+                <button id="btnBack" type="button"
+                        class="px-4 py-2 rounded-xl border border-slate-300 text-sm
+                               text-slate-700 hover:bg-slate-50 disabled:opacity-40">
+                    Voltar
+                </button>
+
+                <button id="btnNext" type="button"
+                        class="flex-1 h-11 rounded-xl bg-orange-500 text-white text-sm font-semibold
+                               hover:bg-orange-600 disabled:opacity-40 disabled:hover:bg-orange-500">
+                    Continuar
+                </button>
+            </div>
+            <p class="text-[11px] text-slate-500 text-center">
+                Os dados ficam apenas no seu navegador (localStorage).
+            </p>
+        </div>
+    </footer>
+</div>
+
+<!-- BANNER DE COOKIES (estilo Voy) -->
+<div id="cookieBanner" class="fixed inset-x-0 bottom-0 z-40">
+    <div class="max-w-md mx-auto mb-20 px-4">
+        <div class="bg-slate-900 text-white text-[11px] rounded-2xl px-4 py-3 shadow-lg flex items-center gap-3">
+            <p class="flex-1">
+                Usamos cookies apenas para lembrar suas respostas e melhorar sua experiência.
+                Ao continuar, você concorda com isso.
+            </p>
+            <button id="btnCookie"
+                    class="px-3 py-1 rounded-xl bg-orange-500 text-[11px] font-semibold hover:bg-orange-600">
+                Eu aceito
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ================= BOOTSTRAP + ESTADO ================= */
+    const APP_VERSION = "1.5.0";
+    const STORAGE_KEY = "pc_lr_preavaliacao_v1";
+    const COOKIE_KEY  = "pc_lr_cookie_ok";
+
+    /* ======= TABELA DE PLANOS (espelhando /precos) ======= */
+    const PLANOS = {
+        Free: {
+            id: "Free",
+            alias: "Degustação",
+            label: "ENTRADA",
+            tipo: "assinatura digital",
+            alvo: "Para quem ainda está em dúvida sobre fisioterapia ou Pilates clínico.",
+            precoMensal: 0,
+            precoAnual: 0,
+            features: [
+                "Questionário gratuito de avaliação da dor",
+                "2 exercícios guiados em vídeo",
+                "Sugestão de plano completo (bloqueada)",
+                "Sem suporte humano"
+            ]
+        },
+        Starter: {
+            id: "Starter",
+            alias: "Autocuidado Guiado",
+            label: "ACESSÍVEL",
+            tipo: "assinatura digital",
+            alvo: "Para dores leves e pessoas fisicamente ativas que querem testar um plano digital leve.",
+            precoMensal: 79,
+            precoAnual: 758,
+            features: [
+                "Tudo do plano Free",
+                "Plano de exercícios: 2 aulas/mês",
+                "Relatórios automáticos de progresso",
+                "Recomendações personalizadas via IA"
+            ]
+        },
+        Essential: {
+            id: "Essential",
+            alias: "Reabilitação Guiada",
+            label: "COMPLETO",
+            tipo: "assinatura digital",
+            alvo: "Dor crônica leve a moderada com acompanhamento remoto e evolução gradual.",
+            precoMensal: 107,
+            precoAnual: 1027,
+            features: [
+                "Tudo do plano Starter",
+                "Plano de exercícios: 4 aulas/mês",
+                "Evolução progressiva dos movimentos"
+            ]
+        },
+        ClinicalPlus: {
+            id: "Clinical+",
+            alias: "Consulta + Acompanhamento",
+            label: "HÍBRIDO",
+            tipo: "pagamento único",
+            alvo: "Avaliação direta e ajustes com especialista em dor crônica.",
+            precoUnico: 350,
+            features: [
+                "Tudo do plano Essential",
+                "1 consulta online com a fisioterapeuta Lívia Rocha",
+                "Ajustes do plano após a consulta",
+                "Suporte por WhatsApp por 30 dias"
+            ],
+            nota: "Mais popular"
+        },
+        Recovery: {
+            id: "Recovery",
+            alias: "Premium",
+            label: "INTENSIVO",
+            tipo: "assinatura digital",
+            alvo: "Para dores complexas ou reabilitação avançada com acompanhamento contínuo.",
+            precoMensal: 690,
+            precoAnual: 6624,
+            features: [
+                "Tudo do plano Clinical+",
+                "2 consultas mensais com fisioterapeuta",
+                "Sessões de vídeo personalizadas e gravadas",
+                "Reavaliação mensal e evolução documentada"
+            ],
+            nota: "Acompanhamento contínuo para dor persistente"
+        }
+    };
+
+    const freshState = {
+        version: APP_VERSION,
+        answers: {},
+        tags: {},
+        score: 0,
+        path: ["ondeMora"],
+        current: "ondeMora",
+        pendingOutcome: null,
+        recommendedPlan: null,
+        recommendedReason: "",
+        intent: null // << ADICIONADO
+    };
+
+    let state;
+    try {
+        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        state = (raw && typeof raw === "object") ? {...freshState, ...raw} : {...freshState};
+    } catch { state = {...freshState}; }
+
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function hardReset(){ state = {...freshState}; save(); }
+    function reset(){ localStorage.removeItem(STORAGE_KEY); location.reload(); }
+    if (!state.version || state.version !== APP_VERSION) hardReset();
+
+    /* ================= COOKIE BANNER ================= */
+    const cookieBanner = document.getElementById("cookieBanner");
+    const btnCookie = document.getElementById("btnCookie");
+    if(localStorage.getItem(COOKIE_KEY)==="1"){
+        cookieBanner.style.display = "none";
+    }
+    btnCookie.onclick = ()=>{
+        localStorage.setItem(COOKIE_KEY,"1");
+        cookieBanner.style.display = "none";
+    };
+
+    /* ================= PESOS (Portugol) ================= */
+    const PESO_CHRONIC_MESES = 12;
+    const PESO_IMPACTO_SONO  = 6;
+    const PESO_IMPACTO_TRAB  = 6;
+    const PESO_IMPACTO_SOC   = 4;
+    const PESO_INTENS_7PLUS  = 8;
+    const PESO_MEDO_MOV      = 5;
+    const PESO_CATASTRO      = 5;
+    const PESO_MULTI_TENT    = 6;
+    const PESO_RED_FLAG      = 100;
+
+    /* ================= UTILS TAGS/SCORE ================= */
+    function tagAdd(tag){ state.tags[tag] = (state.tags[tag] || 0) + 1; }
+    function hasTag(tag){ return (state.tags[tag] || 0) > 0; }
+    function addScore(n){ state.score += n; }
+
+    /* ================= FLUXO (mapeando o Portugol + “Voyzado”) ================= */
+    const steps = {
+        /* 1. ONDE VOCÊ MORA (primeiro micro-compromisso) */
+        ondeMora: {
+            type:"form",
+            title:"Onde você mora?",
+            help:"Nossos encontros são 100% online, mas saber seu estado ajuda a organizar horários e orientações locais, se necessário.",
+            fields:[
+                {
+                    id:"estado",
+                    label:"Estado",
+                    type:"select",
+                    required:true,
+                    options:[
+                        {label:"Escolha uma opção", value:""},
+                        {label:"Acre (AC)", value:"AC"},
+                        {label:"Alagoas (AL)", value:"AL"},
+                        {label:"Amapá (AP)", value:"AP"},
+                        {label:"Amazonas (AM)", value:"AM"},
+                        {label:"Bahia (BA)", value:"BA"},
+                        {label:"Ceará (CE)", value:"CE"},
+                        {label:"Distrito Federal (DF)", value:"DF"},
+                        {label:"Espírito Santo (ES)", value:"ES"},
+                        {label:"Goiás (GO)", value:"GO"},
+                        {label:"Maranhão (MA)", value:"MA"},
+                        {label:"Mato Grosso (MT)", value:"MT"},
+                        {label:"Mato Grosso do Sul (MS)", value:"MS"},
+                        {label:"Minas Gerais (MG)", value:"MG"},
+                        {label:"Pará (PA)", value:"PA"},
+                        {label:"Paraíba (PB)", value:"PB"},
+                        {label:"Paraná (PR)", value:"PR"},
+                        {label:"Pernambuco (PE)", value:"PE"},
+                        {label:"Piauí (PI)", value:"PI"},
+                        {label:"Rio de Janeiro (RJ)", value:"RJ"},
+                        {label:"Rio Grande do Norte (RN)", value:"RN"},
+                        {label:"Rio Grande do Sul (RS)", value:"RS"},
+                        {label:"Rondônia (RO)", value:"RO"},
+                        {label:"Roraima (RR)", value:"RR"},
+                        {label:"Santa Catarina (SC)", value:"SC"},
+                        {label:"São Paulo (SP)", value:"SP"},
+                        {label:"Sergipe (SE)", value:"SE"},
+                        {label:"Tocantins (TO)", value:"TO"}
+                    ]
+                }
+            ],
+            next:"boasVindas"
+        },
+
+        /* 2. BOAS-VINDAS (mensagem de acolhimento) */
+        boasVindas: {
+            type:"message",
+            title:"Bem-vindo! Vamos entender sua dor e indicar um caminho inicial (2–3 min).",
+            edu:"Você não está sozinho: cerca de 30% das pessoas convivem com dor crônica em algum momento da vida. Aqui a ideia é te ouvir e montar um primeiro mapa da sua dor.",
+            next:"comoFunciona"
+        },
+
+        /* 3. COMO VAI FUNCIONAR (resumo das etapas, estilo Voy) */
+        comoFunciona: {
+            type:"message",
+            title:"Como vai funcionar esse mini questionário",
+            help:"Serão poucos passos, todos pensados para respeitar seu tempo e sua dor.",
+            edu:"Nesta pré-avaliação nós vamos:\n\n" +
+                "1) Entender melhor a sua dor, há quanto tempo ela existe e como impacta sua rotina.\n" +
+                "2) Identificar sinais de alerta e fatores emocionais/comportamentais que podem estar mantendo a dor.\n" +
+                "3) Sugerir um caminho inicial dentro do Método Pilates Clínico, com foco em segurança e resultado real.\n\n" +
+                "Leva em torno de 2–3 minutos, e você pode parar a qualquer momento.",
+            next:"coletarIdentificacao"
+        },
+
+        /* 4. IDENTIFICAÇÃO BÁSICA */
+        coletarIdentificacao: {
+            type:"form",
+            title:"Identificação inicial",
+            help:"Informe sua idade e selecione as regiões mais acometidas (pode marcar mais de uma).",
+            fields:[
+                {id:"idade", label:"Idade", type:"number", required:true, min:18, max:120},
+                {id:"regioes", label:"Regiões da dor", type:"checkboxes", required:true,
+                    options:[
+                        {label:"Lombar", value:"lombar", effects:()=>tagAdd("low_back")},
+                        {label:"Cervical", value:"cervical", effects:()=>tagAdd("neck")},
+                        {label:"Cefaleia/Enxaqueca", value:"cefaleia", effects:()=>tagAdd("migraine")},
+                        {label:"Difusa (dor em vários lugares)", value:"difusa", effects:()=>tagAdd("fibromyalgia")},
+                        {label:"Outra", value:"outra"}
+                    ]}
+            ],
+            next:"coletarTempoEDerivacoes"
+        },
+
+        /* 5. TEMPO DE DOR (aguda vs crônica) */
+        coletarTempoEDerivacoes: {
+            type:"single",
+            title:"Há quanto tempo essa dor te acompanha?",
+            options:[
+                {label:"Menos de 6 semanas (<6s)", value:"<6s", effects:()=>tagAdd("acute")},
+                {label:"6–12 semanas", value:"6-12s", effects:()=>tagAdd("acute")},
+                {label:"3–12 meses", value:"3-12m", effects:()=>{ tagAdd("chronic"); tagAdd("central_sensitization"); addScore(PESO_CHRONIC_MESES);} },
+                {label:"Mais de 1 ano (>12m)", value:">12m", effects:()=>{ tagAdd("chronic"); tagAdd("central_sensitization"); addScore(PESO_CHRONIC_MESES);} }
+            ],
+            edu:"De forma simples: dor aguda costuma ser um \"alarme\" recente do corpo. Dor crônica já envolve o sistema nervoso mais sensível, mesmo quando não há lesão ativa.",
+            branch:(val)=> (val === "<6s" || val === "6-12s") ? "coletarAguda" : "coletarIntensidade"
+        },
+
+        /* 6. GATILHO DA DOR AGUDA/SUBAGUDA */
+        coletarAguda: {
+            type:"single",
+            title:"(Aguda/Subaguda) O que parece ter desencadeado a dor?",
+            options:[
+                {label:"Trauma (queda/torção)", value:"trauma"},
+                {label:"Esforço físico recente", value:"esforco"},
+                {label:"Postura/sobrecarga repetitiva", value:"postura"},
+                {label:"Não sei dizer", value:"desconhecido"}
+            ],
+            edu:"Identificar gatilhos ajuda a prevenir recidivas e a planejar melhor os movimentos do dia a dia.",
+            next:"checarRedFlags"
+        },
+
+        /* 7. INTENSIDADE MÉDIA (SLIDER 0–10) */
+        coletarIntensidade: {
+            type:"slider",
+            title:"(Crônica) Intensidade média da dor (0 = sem dor / 10 = pior possível)",
+            min:0, max:10, step:1,
+            effects:(val)=>{
+                val = Number(val||0);
+                if(val>=7){
+                    addScore(PESO_INTENS_7PLUS);
+                    tagAdd("yellow_flags");
+                } else if(val>=4){
+                    addScore(4);
+                }
+            },
+            next:"checarRedFlags"
+        },
+
+        /* 8. RED FLAGS (checklist) */
+        checarRedFlags: {
+            type:"multi",
+            title:"Algum destes sinais de alerta está presente?",
+            options:[
+                {label:"Febre / perda de peso recente", value:"fever_pp", effects:()=>{ addScore(PESO_RED_FLAG); tagAdd("red_flags"); }},
+                {label:"Formigamento intenso / fraqueza progressiva", value:"deficit", effects:()=>{ addScore(PESO_RED_FLAG); tagAdd("red_flags"); }},
+                {label:"Perda de controle de bexiga/intestino", value:"esfincter", effects:()=>{ addScore(PESO_RED_FLAG); tagAdd("red_flags"); }},
+                {label:"Câncer/infecção grave recente", value:"cancer_inf", effects:()=>{ addScore(PESO_RED_FLAG); tagAdd("red_flags"); }},
+                {label:"Nenhum deles", value:"no"}
+            ],
+            edu:"Esses sinais exigem atenção médica rápida. Nosso papel é também te orientar quando o melhor caminho é procurar um médico primeiro.",
+            branch:(vals)=>{
+                const picks = (vals||[]).filter(v => v !== "no");
+                return picks.length>0 ? "out_redflag" : "blocoBiopsicossocial";
+            }
+        },
+
+        /* 9. BLOCO BIOPSICOSSOCIAL (impactos + crenças + histórico) */
+        blocoBiopsicossocial: {
+            type:"group",
+            title:"Impactos, crenças e hábitos",
+            groups: [
+                { id:"impactos", type:"multi", title:"Quais impactos mais te atrapalham?",
+                    options:[
+                        {label:"Sono", value:"sono",   effects:()=>{ addScore(PESO_IMPACTO_SONO); tagAdd("biopsicossocial"); }},
+                        {label:"Trabalho/Estudos", value:"trabalho", effects:()=>{ addScore(PESO_IMPACTO_TRAB); tagAdd("biopsicossocial"); }},
+                        {label:"Vida social/família", value:"social", effects:()=>{ addScore(PESO_IMPACTO_SOC); tagAdd("biopsicossocial"); }},
+                        {label:"Humor/Ansiedade", value:"humor", effects:()=>{ addScore(4); tagAdd("biopsicossocial"); }}
+                    ],
+                    edu:"~70% das pessoas com dor crônica relatam impacto no sono e no trabalho. Não é frescura: é um efeito real da dor no corpo e na mente."
+                },
+                { id:"crencas", type:"toggles", title:"Crenças e reações à dor",
+                    toggles:[
+                        {label:"Medo de se mover (cinesiofobia)", id:"crencaMedoMov", effects:(on)=>{ if(on){ addScore(PESO_MEDO_MOV); tagAdd("yellow_flags"); } }},
+                        {label:"Catastrofização (acredito que há dano grave)", id:"crencaCatastro", effects:(on)=>{ if(on){ addScore(PESO_CATASTRO); tagAdd("yellow_flags"); } }},
+                        {label:"Respiro e tento me movimentar com cuidado", id:"crencaRespiraMove", effects:(on)=>{}}
+                    ]
+                },
+                { id:"historico", type:"multi", title:"O que você já tentou para aliviar?",
+                    options:[
+                        {label:"Remédios/anti-inflamatórios", value:"med"},
+                        {label:"Fisioterapia convencional", value:"physio"},
+                        {label:"Exercícios/Pilates comum", value:"pilates"},
+                        {label:"Cirurgia/Procedimentos", value:"proc"},
+                        {label:"Nada ainda", value:"nada"}
+                    ],
+                    after:(vals)=>{
+                        if(vals && vals.length>=2){
+                            addScore(PESO_MULTI_TENT);
+                            tagAdd("central_sensitization");
+                        }
+                    },
+                    edu:"Se várias tentativas falharam, muitas vezes não foi falta de esforço seu, e sim falta de uma abordagem integrada corpo–mente."
+                }
+            ],
+            next:"extrasBiopsico"
+        },
+        /* 9b. ITENS ADICIONAIS EM STEP PRÓPRIO */
+        extrasBiopsico: {
+            type:"group",
+            title:"Itens adicionais (opcionais)",
+            groups:[
+                { id:"extras", type:"formRow", title:"Itens adicionais (opcionais)",
+                    fields:[
+                        {id:"ansiedade010", label:"Ansiedade (0–10)", type:"number", min:0, max:10},
+                        {id:"estresse010",  label:"Estresse (0–10)", type:"number", min:0, max:10},
+                        {id:"atividadeFis", label:"Atividade física", type:"select", options:["sedentario","1-2x","3-4x","5+"]},
+                        {id:"posturaHabito", label:"Postura/hábitos repetitivos", type:"select", options:["nao","sim"]},
+                        {id:"fadigaFacil",  label:"Fadiga fácil", type:"select", options:["nao","sim"]},
+                        {id:"hiperOdoresLuzSom", label:"Hipersensibilidade a luz/sons/odores", type:"select", options:["nao","sim"]},
+                        {id:"qualidadeHoje010", label:"Qualidade de vida hoje (0–10)", type:"number", min:0, max:10},
+                        {id:"satisfSaude010",  label:"Satisfação com a saúde (0–10)", type:"number", min:0, max:10},
+                        {id:"pensamentosNeg",  label:"Pensamentos negativos", type:"select", options:["nunca","raramente","frequentemente","sempre"]}
+                    ],
+                    effects:(vals)=>{
+                        if(vals.fadigaFacil==="sim") tagAdd("central_sensitization");
+                        if(vals.hiperOdoresLuzSom==="sim") tagAdd("central_sensitization");
+                    }
+                }
+            ],
+            next:"objetivosEDisposicao"
+        },
+
+        /* 10. OBJETIVOS E DISPOSIÇÃO (duas escolhas obrigatórias) */
+        objetivosEDisposicao: {
+            type:"group",
+            title:"Objetivo e disposição",
+            groups:[
+                { id:"objetivo", type:"single", title:"Objetivo principal (4–8 semanas)", required:true,
+                    options:[
+                        {label:"Dormir melhor", value:"dormir"},
+                        {label:"Atividade sem medo", value:"atividade"},
+                        {label:"Reduzir dor no trabalho/estudos", value:"trabalho"},
+                        {label:"Retomar vida social", value:"social"}
+                    ]
+                },
+                { id:"disposicao", type:"single", title:"Qual sua disposição para um plano de 10–20 min/dia?", required:true,
+                    options:[
+                        {label:"Quero começar agora", value:"agora"},
+                        {label:"Quero entender melhor antes", value:"entender"},
+                        {label:"Prefiro ver opções sem compromisso", value:"ver_opcoes"}
+                    ]
+                }
+            ],
+            next:"router"
+        },
+
+        /* 11. ROTEADOR (faz o resumo e gera saída) */
+        router: { type:"router" },
+
+        /* 11b. CARD DE BENEFÍCIOS (market/benefício) */
+        beneficiosPlano: {
+            type:"message",
+            title:"O que normalmente acontece com quem segue este plano",
+            help:"Antes de ver o relatório e os próximos passos, um resumo rápido do que você pode esperar.",
+            edu:"• Exercícios seguros, pensados para o seu tipo de dor.\n" +
+                "• Ajustes simples de rotina (sono, postura, pausas) para aliviar a sobrecarga.\n" +
+                "• Acompanhamento próximo para adaptar o plano conforme sua resposta.\n" +
+                "• Possibilidade de migrar para programas mais completos, se fizer sentido para você.",
+            next:"planoRecomendado"
+        },
+
+        /* 11c. TELA DE PLANO RECOMENDADO (nova) */
+        planoRecomendado: {
+            type:"message",
+            title:"Plano mais recomendado para o seu perfil",
+            help:"Essa sugestão é baseada no tipo de dor, no impacto na sua rotina e na sua disposição para seguir um plano diário.",
+            next:"capturaContato"
+        },
+
+        /* 11d. CAPTURA DE CONTATO (ao estilo Voy) */
+        capturaContato: {
+            type:"form",
+            title:"Para onde enviamos o seu relatório e próximo passo?",
+            help:"Use um contato que você realmente acessa. Vamos enviar o resumo da sua pré-avaliação, os detalhes do plano recomendado e abrir um canal direto para tirar dúvidas.",
+            fields:[
+                {id:"nome",  label:"Nome completo", type:"text", required:true},
+                {id:"whats", label:"WhatsApp (com DDD)", type:"tel", required:true},
+                {id:"email", label:"E-mail (opcional)", type:"email", required:false}
+            ],
+            branch: ()=> state.pendingOutcome || routeOutcome()
+        },
+
+        /* 11e. PERGUNTA ABERTA FINAL */
+        perguntasFinais: {
+            type:"form",
+            title:"Quer deixar alguma dúvida ou comentário final?",
+            help:"Opcional, mas ajuda muito a personalizar o seu atendimento.",
+            fields:[
+                {id:"duvida", label:"Existe algo importante que você gostaria de explicar melhor ou perguntar?", type:"textarea", required:false}
+            ],
+            next:"closing"
+        },
+
+        /* 12. OUTCOMES (recomendações macro) */
+        out_redflag: {
+            type:"outcome",
+            title:"ATENÇÃO: avaliação médica imediata",
+            body:"Com base nas suas respostas, surgiram sinais de alerta importantes. A recomendação é procurar avaliação médica o quanto antes, antes de iniciar qualquer plano físico mais intenso.",
+            next:"perguntasFinais"
+        },
+        out_acute: {
+            type:"outcome",
+            title:"RELATÓRIO AGUDO: guia rápido anti-cronificação",
+            body:"Sua dor parece mais recente. Um plano curto focado em higiene de movimentos, respeitando o tempo do corpo, ajuda a evitar que ela se torne crônica.",
+            next:"perguntasFinais"
+        },
+        out_chronic_lowback: {
+            type:"outcome",
+            title:"RELATÓRIO LOMBALGIA CRÔNICA",
+            body:"Seu perfil é compatível com dor lombar crônica. Aqui o foco é combinar educação em dor, ajustes de rotina e exposição gradual ao movimento, sempre com segurança.",
+            next:"perguntasFinais"
+        },
+        out_chronic_neck: {
+            type:"outcome",
+            title:"RELATÓRIO CERVICAL CRÔNICA",
+            body:"Seu perfil indica dor cervical crônica. Pequenos ajustes de ergonomia, respiração e exercícios graduais fazem muita diferença a médio prazo.",
+            next:"perguntasFinais"
+        },
+        out_migraine: {
+            type:"outcome",
+            title:"RELATÓRIO ENXAQUECA",
+            body:"No seu caso, a enxaqueca merece atenção especial a gatilhos (sono, estresse, alimentação) e estratégias corporais que acalmem o sistema nervoso.",
+            next:"perguntasFinais"
+        },
+        out_fibro: {
+            type:"outcome",
+            title:"RELATÓRIO DOR DIFUSA / FIBROMIALGIA",
+            body:"Dor difusa pede um olhar global: ritmo de vida, sono, emoções e movimento. O foco é construir segurança no corpo, passo a passo, usando a neuroplasticidade a seu favor.",
+            next:"perguntasFinais"
+        },
+        out_generic_chronic: {
+            type:"outcome",
+            title:"RELATÓRIO CRÔNICO BASE",
+            body:"Sua dor mostra características de cronicidade. Um plano biopsicossocial, unindo educação em dor, movimento gradual e ajustes de rotina, costuma trazer bons resultados.",
+            next:"perguntasFinais"
+        },
+
+        /* 13. CLOSING (por que o método) */
+        closing: {
+            type:"closing",
+            title:"Por que o Método Pilates Clínico Lívia Rocha",
+            bullets:[
+                "Avaliação do tipo de dor (nociceptiva, neuropática, nociplástica) para definir melhor a estratégia.",
+                "Metas construídas em conjunto com você (decisão terapêutica compartilhada).",
+                "Educação em dor para reduzir medo, culpa e catastrofização.",
+                "Exercícios graduais e seguros para um sistema nervoso sensibilizado (neuroplasticidade positiva).",
+                "Ajustes de sono, respiração e hábitos para sustentar a melhora ao longo das semanas."
+            ],
+            social:"Muitos pacientes com perfil semelhante ao seu relatam evolução consistente em 4–8 semanas quando seguem o plano proposto.",
+            disclaimer:"Esta é uma pré-avaliação educativa, não substitui consulta médica. Em caso de sinais de alerta, priorize atendimento médico.",
+            next:null  // fluxo termina aqui
+        }
+    };
+
+    function guardStepsExist(){
+        if(!steps[state.current]) hardReset();
+        const last = state.path[state.path.length-1];
+        if(!steps[last]) hardReset();
+    }
+    guardStepsExist();
+
+    /* ============= RECOMPUTE (aplica regras do Portugol) ============= */
+    function recompute(){
+        state.tags = {};
+        state.score = 0;
+
+        const cid = "coletarIdentificacao";
+        const f = state.answers[cid] || {};
+        if (Array.isArray(f.regioes)) {
+            f.regioes.forEach(v=>{
+                const opt = (steps[cid].fields[1].options||[]).find(o=>o.value===v);
+                if(opt && typeof opt.effects==="function") opt.effects();
+            });
+        }
+
+        const td = state.answers.coletarTempoEDerivacoes;
+        if(td){
+            const opt = (steps.coletarTempoEDerivacoes.options||[]).find(o=>o.value===td);
+            if(opt && opt.effects) opt.effects();
+        }
+
+        if(state.answers.coletarIntensidade!==undefined){
+            const val = Number(state.answers.coletarIntensidade||0);
+            steps.coletarIntensidade.effects && steps.coletarIntensidade.effects(val);
+        }
+
+        const rfs = (state.answers.checarRedFlags || []).filter(v=>v!=="no");
+        rfs.forEach(v=>{
+            const opt = (steps.checarRedFlags.options||[]).find(o=>o.value===v);
+            if(opt && opt.effects) opt.effects();
+        });
+
+        const g = steps.blocoBiopsicossocial.groups;
+        const imp = state.answers["blocoBiopsicossocial__impactos"] || [];
+        imp.forEach(v=>{
+            const opt=(g[0].options||[]).find(o=>o.value===v);
+            if(opt&&opt.effects) opt.effects();
+        });
+
+        const cr = state.answers["blocoBiopsicossocial__crencas"] || {};
+        g[1].toggles.forEach(t=>{
+            const on=!!cr[t.id];
+            if(t.effects) t.effects(on);
+        });
+
+        const hist = state.answers["blocoBiopsicossocial__historico"] || [];
+        g[2].after && g[2].after(hist);
+
+        const gExtra = steps.extrasBiopsico.groups[0];
+        const extras = state.answers["extrasBiopsico__extras"] || {};
+        gExtra.effects && gExtra.effects(extras);
+
+        save();
+    }
+    function routeOutcome(){
+        if(hasTag("red_flags")) return "out_redflag";
+        if(hasTag("fibromyalgia")) return "out_fibro";
+        if(hasTag("migraine")) return "out_migraine";
+        if(hasTag("low_back") && hasTag("chronic")) return "out_chronic_lowback";
+        if(hasTag("neck") && hasTag("chronic")) return "out_chronic_neck";
+        if(hasTag("acute") && !hasTag("chronic")) return "out_acute";
+        return "out_generic_chronic";
+    }
+
+    /* ============= ENGINE DE SUGESTÃO DE PLANO ============= */
+    function suggestPlan(){
+        // Severidade aproximada pelo score
+        let severity = "low";
+        if(state.score >= 40) severity = "high";
+        else if(state.score >= 20) severity = "moderate";
+
+        const chronic   = hasTag("chronic");
+        const acute     = hasTag("acute");
+        const central   = hasTag("central_sensitization");
+        const yellow    = hasTag("yellow_flags");
+        const red       = hasTag("red_flags");
+        const hist      = state.answers["blocoBiopsicossocial__historico"] || [];
+        const attempts  = Array.isArray(hist) ? hist.length : 0;
+        const dispo     = state.answers["objetivosEDisposicao__disposicao"] || null;
+
+        if(red){
+            return {
+                plan: null,
+                reason: "Há sinais de alerta importantes. A prioridade é uma avaliação médica presencial; depois disso podemos avaliar juntos qual plano faz mais sentido."
+            };
+        }
+
+        // Dor aguda / recente
+        if(!chronic && acute){
+            if(severity === "low"){
+                if(dispo === "ver_opcoes"){
+                    return {
+                        plan: "Free",
+                        reason: "Sua dor parece mais leve e recente, e você prefere começar sem compromisso. O plano Free permite experimentar a abordagem e entender melhor seu caso."
+                    };
+                }
+                return {
+                    plan: "Starter",
+                    reason: "Sua dor é mais leve/recente. O plano Starter oferece um plano digital leve, com baixo compromisso financeiro e foco em autocuidado guiado."
+                };
+            }
+            // moderada para aguda
+            if(severity === "moderate"){
+                return {
+                    plan: "Starter",
+                    reason: "Sua dor ainda é relativamente recente, mas já impacta um pouco sua rotina. Um plano digital leve, com acompanhamento por IA, costuma ser um bom primeiro passo."
+                };
+            }
+        }
+
+        // Dor crônica
+        if(chronic){
+            if(severity === "low"){
+                return {
+                    plan: "Essential",
+                    reason: "Seu perfil aponta para dor crônica leve a moderada. O plano Essential oferece 4 aulas/mês e progressão estruturada, suficiente para muitos casos sem precisar de algo intensivo."
+                };
+            }
+
+            if(severity === "moderate"){
+                if(dispo === "entender" || attempts >= 2){
+                    return {
+                        plan: "ClinicalPlus",
+                        reason: "Dor crônica com impacto relevante e histórico de tentativas anteriores. A combinação de consulta direta com Lívia Rocha + plano digital aumenta a chance de um ajuste fino logo no início."
+                    };
+                }
+                return {
+                    plan: "Essential",
+                    reason: "Dor crônica moderada, mas ainda manejável com acompanhamento remoto estruturado. O Essential equilibra custo e suporte de forma eficiente."
+                };
+            }
+
+            // severity high (score alto ou muitos impactos)
+            if(severity === "high"){
+                if(central || yellow || attempts >= 3){
+                    return {
+                        plan: "Recovery",
+                        reason: "Seu perfil é de dor crônica mais complexa, com impacto importante na rotina e sinais de sensibilização. O Recovery oferece acompanhamento intensivo contínuo, ideal para reorganizar a vida com dor persistente."
+                    };
+                }
+                return {
+                    plan: "ClinicalPlus",
+                    reason: "Dor crônica com escore alto. Uma consulta inicial com especialista em dor crônica, somada ao plano digital, tende a ser a porta de entrada mais segura para começar."
+                };
+            }
+        }
+
+        // fallback genérico
+        return {
+            plan: "Starter",
+            reason: "Quando o perfil fica no meio do caminho entre leve e moderado, sugerimos começar pelo plano digital leve e reavaliar após as primeiras semanas."
+        };
+    }
+
+    /* ============= UI/NAVEGAÇÃO ============= */
+    const UI = {
+        title: document.getElementById("title"),
+        help:  document.getElementById("help"),
+        form:  document.getElementById("formStep"),
+        answers: document.getElementById("answers"),
+        edu: document.getElementById("edu"),
+        badge: document.getElementById("stepBadge"),
+        next: document.getElementById("btnNext"),
+        back: document.getElementById("btnBack"),
+        reset: document.getElementById("btnReset"),
+        export: document.getElementById("btnExport"),
+        progress: document.getElementById("progressBar"),
+        phaseLabel: document.getElementById("phaseLabel")
+    };
+    UI.back.onclick = ()=>go(-1);
+    UI.next.onclick = ()=>go(+1);
+    UI.reset.onclick = reset;
+    UI.export.onclick = exportJSON;
+
+    function getPhaseLabel(key){
+        const etapa1 = ["ondeMora","boasVindas","comoFunciona","coletarIdentificacao","coletarTempoEDerivacoes","coletarAguda","coletarIntensidade","checarRedFlags"];
+        const etapa2 = ["blocoBiopsicossocial","extrasBiopsico","objetivosEDisposicao"];
+        const etapa3 = ["router","beneficiosPlano","planoRecomendado","capturaContato","out_redflag","out_acute","out_chronic_lowback","out_chronic_neck","out_migraine","out_fibro","out_generic_chronic","perguntasFinais","closing"];
+
+        if(etapa1.includes(key)) return "Etapa 1 · Entender sua dor";
+        if(etapa2.includes(key)) return "Etapa 2 · Impactos e objetivos";
+        if(etapa3.includes(key)) return "Etapa 3 · Recomendações iniciais";
+        return "Pré-avaliação de Dor";
+    }
+
+    function render(key){
+        const node = steps[key];
+        state.current = key;
+        save();
+
+        UI.title.textContent = node.title || "";
+        UI.help.textContent  = node.help || "";
+        UI.answers.innerHTML = "";
+        UI.edu.textContent   = node.edu || "";
+        UI.next.disabled = false;
+        UI.back.disabled = (state.path.length<=1 || state.path[0]===key);
+        UI.phaseLabel.textContent = getPhaseLabel(key);
+
+        const idx = state.path.indexOf(key)+1;
+        UI.badge.textContent = idx;
+        UI.progress.style.width = `${Math.min(100, idx/Math.max(1,state.path.length)*100)}%`;
+
+        if(node.type==="message"){
+            // mensagens simples usam apenas título + help + edu
+            // EXCEÇÃO: planoRecomendado (renderiza card dinâmico abaixo)
+            if(key === "planoRecomendado"){
+                const wrap = document.createElement("div");
+                wrap.className = "mt-4 rounded-2xl border bg-white p-4 shadow-lg";
+
+                const planKey = state.recommendedPlan;
+                const reason  = state.recommendedReason || "";
+
+                if(!planKey || !PLANOS[planKey]){
+                    const p = document.createElement("p");
+                    p.className = "text-sm text-slate-700";
+                    p.textContent = reason || "Vamos definir o melhor plano junto com você após uma conversa mais detalhada. Nesta etapa, o mais importante é entender seu tipo de dor com segurança.";
+                    wrap.appendChild(p);
+                } else {
+                    const plano = PLANOS[planKey];
+
+                    // Cabeçalho com nome + selo + preço
+                    const header = document.createElement("div");
+                    header.className = "flex items-center justify-between gap-3";
+
+                    const left = document.createElement("div");
+                    const h3 = document.createElement("h3");
+                    h3.className = "font-semibold text-lg";
+                    h3.textContent = `${plano.id} · ${plano.alias}`;
+                    left.appendChild(h3);
+
+                    const chip = document.createElement("span");
+                    chip.className = "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 mt-1";
+                    chip.textContent = plano.label;
+                    left.appendChild(chip);
+
+                    const price = document.createElement("div");
+                    price.className = "text-right text-sm text-slate-700";
+                    if(plano.precoUnico){
+                        price.textContent = `R$ ${plano.precoUnico},00 · pagamento único`;
+                    } else if(plano.precoMensal > 0){
+                        price.textContent = `R$ ${plano.precoMensal},00 /mês · ${plano.tipo}`;
+                    } else {
+                        price.textContent = "Sem custo · plano de entrada";
+                    }
+
+                    header.appendChild(left);
+                    header.appendChild(price);
+                    wrap.appendChild(header);
+
+                    // Target
+                    const alvo = document.createElement("p");
+                    alvo.className = "mt-2 text-sm text-slate-700";
+                    alvo.textContent = plano.alvo;
+                    wrap.appendChild(alvo);
+
+                    // Benefícios
+                    const ul = document.createElement("ul");
+                    ul.className = "mt-3 text-sm text-slate-700 list-disc ml-5";
+                    (plano.features || []).slice(0,4).forEach(f=>{
+                        const li = document.createElement("li");
+                        li.textContent = f;
+                        ul.appendChild(li);
+                    });
+                    wrap.appendChild(ul);
+
+                    // Por que este plano?
+                    if(reason){
+                        const why = document.createElement("p");
+                        why.className = "mt-3 text-sm text-slate-700";
+                        why.innerHTML = `<span class="font-semibold">Por que este plano?</span> ${reason}`;
+                        wrap.appendChild(why);
+                    }
+
+                    // Prova social leve
+                    const social = document.createElement("p");
+                    social.className = "mt-2 text-xs text-slate-500";
+                    social.textContent = "Pacientes com perfil semelhante ao seu costumam relatar melhora consistente em algumas semanas quando seguem esse tipo de plano com regularidade.";
+                    wrap.appendChild(social);
+
+                    // Aviso
+                    const note = document.createElement("p");
+                    note.className = "mt-2 text-[11px] text-slate-500";
+                    note.textContent = "Essa recomendação é inicial e pode ser ajustada após uma conversa direta com a fisioterapeuta.";
+                    wrap.appendChild(note);
+
+                    // CTA principal: começar com este plano
+                    const btnPrimary = document.createElement("button");
+                    btnPrimary.type = "button";
+                    btnPrimary.className = "mt-4 w-full h-11 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600";
+                    btnPrimary.textContent = "Quero começar com este plano";
+                    btnPrimary.onclick = () => {
+                        state.intent = {
+                            action: "start_plan",
+                            plan: planKey,
+                            ts: Date.now()
+                        };
+                        save();
+                        pushToPath("capturaContato");
+                        render("capturaContato");
+                    };
+                    wrap.appendChild(btnPrimary);
+
+                    // CTA secundário: falar com alguém antes
+                    const btnSecondary = document.createElement("button");
+                    btnSecondary.type = "button";
+                    btnSecondary.className = "mt-2 w-full h-10 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50";
+                    btnSecondary.textContent = "Prefiro falar com alguém antes";
+                    btnSecondary.onclick = () => {
+                        state.intent = {
+                            action: "talk_first",
+                            plan: planKey,
+                            ts: Date.now()
+                        };
+                        save();
+                        pushToPath("capturaContato");
+                        render("capturaContato");
+                    };
+                    wrap.appendChild(btnSecondary);
+                }
+
+                UI.answers.appendChild(wrap);
+                UI.next.disabled = false;
+            }
+
+
+            // nada mais a renderizar em answers para mensagens padrão
+        }
+
+        if(node.type==="single"){
+            const name = key; const current = state.answers[key] || null;
+            const fs = document.createElement("fieldset");
+            (node.options||[]).forEach((opt,i)=>{
+                const id = `${name}_${i}`;
+                const label = document.createElement("label");
+                label.setAttribute("for", id);
+                label.className = "flex items-center gap-3 border rounded-xl px-4 py-3 mb-2 cursor-pointer hover:border-indigo-500 bg-white";
+                const input = document.createElement("input");
+                input.type = "radio"; input.name = name; input.id = id; input.value = opt.value;
+                input.checked = current === opt.value;
+                input.className = "w-4 h-4 accent-indigo-600";
+                input.onchange = ()=>{
+                    state.answers[key] = opt.value;
+                    save();
+                    UI.next.disabled = false;
+                };
+                const span = document.createElement("span"); span.textContent = opt.label;
+                label.appendChild(input); label.appendChild(span); fs.appendChild(label);
+            });
+            UI.answers.appendChild(fs);
+            UI.next.disabled = !state.answers[key];
+        }
+
+        if(node.type==="multi"){
+            const name = key; const current = new Set(state.answers[key] || []);
+            const fs = document.createElement("fieldset");
+            (node.options||[]).forEach((opt,i)=>{
+                const id = `${name}_${i}`;
+                const label = document.createElement("label");
+                label.setAttribute("for", id);
+                label.className = "flex items-center gap-3 border rounded-xl px-4 py-3 mb-2 cursor-pointer hover:border-indigo-500 bg-white";
+                const input = document.createElement("input");
+                input.type = "checkbox"; input.id = id; input.value = opt.value;
+                input.checked = current.has(opt.value);
+                input.className = "w-4 h-4 accent-indigo-600";
+                input.onchange = ()=>{
+                    if(input.checked) current.add(opt.value); else current.delete(opt.value);
+                    state.answers[key] = Array.from(current);
+                    save();
+                };
+                const span = document.createElement("span"); span.textContent = opt.label;
+                label.appendChild(input); label.appendChild(span); fs.appendChild(label);
+            });
+            UI.answers.appendChild(fs);
+        }
+
+        if(node.type==="slider"){
+            const wrap = document.createElement("div");
+            const v = state.answers[key] ?? 0;
+            wrap.innerHTML = `
+      <input id="sl_${key}" type="range"
+             min="${node.min}" max="${node.max}" step="${node.step}"
+             value="${v}" class="accent-indigo-600 w-full">
+      <div class="mt-2 text-sm">
+        <span id="sval_${key}">${v}</span> / ${node.max}
+      </div>
+    `;
+            UI.answers.appendChild(wrap);
+            const sl = wrap.querySelector(`#sl_${key}`);
+            const sval = wrap.querySelector(`#sval_${key}`);
+            sl.oninput = ()=>{
+                state.answers[key]=Number(sl.value);
+                sval.textContent=sl.value;
+                save();
+            };
+            UI.next.disabled = false;
+        }
+
+        if(node.type==="form"){
+            const current = state.answers[key] || {};
+            (node.fields||[]).forEach(field=>{
+                const row = document.createElement("div");
+                row.className="mb-4";
+                const lab = document.createElement("label");
+                lab.className="block mb-1";
+                lab.textContent = field.label + (field.required?" *":"");
+                row.appendChild(lab);
+
+                if(field.type==="checkboxes"){
+                    const curSet = new Set(current[field.id] || []);
+                    const fs = document.createElement("fieldset");
+                    (field.options||[]).forEach((op,i)=>{
+                        const id = `${field.id}_${i}`;
+                        const label = document.createElement("label");
+                        label.setAttribute("for", id);
+                        label.className = "flex items-center gap-3 border rounded-xl px-4 py-3 mb-2 cursor-pointer hover:border-indigo-500 bg-white";
+                        const input = document.createElement("input");
+                        input.type = "checkbox"; input.id = id; input.value = op.value;
+                        input.checked = curSet.has(op.value);
+                        input.className = "w-4 h-4 accent-indigo-600";
+                        input.onchange = ()=>{
+                            if(input.checked) curSet.add(op.value); else curSet.delete(op.value);
+                            state.answers[key] = state.answers[key] || {};
+                            state.answers[key][field.id] = Array.from(curSet);
+                            save();
+                            UI.next.disabled = !formValido(steps[key], state.answers[key] || {});
+                        };
+                        const span = document.createElement("span"); span.textContent = op.label;
+                        label.appendChild(input); label.appendChild(span); fs.appendChild(label);
+                    });
+                    row.appendChild(fs);
+                } else if(field.type==="select"){
+                    const sel = document.createElement("select");
+                    sel.className = "w-full border rounded-xl px-3 py-2 bg-white";
+                    (field.options||[]).forEach(o=>{
+                        const opt = document.createElement("option");
+                        if(typeof o === "string"){
+                            opt.value = o;
+                            opt.textContent = o;
+                        } else {
+                            opt.value = o.value;
+                            opt.textContent = o.label;
+                        }
+                        sel.appendChild(opt);
+                    });
+                    sel.value = (current[field.id] !== undefined && current[field.id] !== null)
+                        ? current[field.id]
+                        : ((field.options && (typeof field.options[0]==="string" ? field.options[0] : field.options[0].value)) || "");
+                    sel.onchange = ()=>{
+                        state.answers[key]=state.answers[key]||{};
+                        state.answers[key][field.id]=sel.value;
+                        save();
+                        UI.next.disabled = !formValido(steps[key], state.answers[key] || {});
+                    };
+                    row.appendChild(sel);
+                } else if(field.type==="number" && field.min===0 && field.max===10){
+                    const wrap = document.createElement("div");
+                    wrap.className = "space-y-1";
+                    const val = (current[field.id] !== undefined && current[field.id] !== null)
+                        ? Number(current[field.id]) : 0;
+                    const slider = document.createElement("input");
+                    slider.type="range";
+                    slider.min="0"; slider.max="10"; slider.step="1";
+                    slider.value = val;
+                    slider.className="w-full accent-indigo-600";
+                    const txt = document.createElement("div");
+                    txt.className="text-xs text-slate-600";
+                    const spanVal = document.createElement("span");
+                    spanVal.textContent = val;
+                    txt.appendChild(spanVal);
+                    txt.insertAdjacentText("beforeend"," / 10");
+                    slider.oninput = ()=>{
+                        const n = Number(slider.value);
+                        spanVal.textContent = n;
+                        state.answers[key]=state.answers[key]||{};
+                        state.answers[key][field.id]=n;
+                        save();
+                        UI.next.disabled = !formValido(steps[key], state.answers[key] || {});
+                    };
+                    wrap.appendChild(slider);
+                    wrap.appendChild(txt);
+                    row.appendChild(wrap);
+                } else if(field.type==="textarea"){
+                    const ta = document.createElement("textarea");
+                    ta.rows = 4;
+                    ta.className = "w-full border rounded-xl px-3 py-2 bg-white";
+                    ta.value = (current[field.id] !== undefined && current[field.id] !== null) ? current[field.id] : "";
+                    ta.oninput = ()=>{
+                        state.answers[key]=state.answers[key]||{};
+                        state.answers[key][field.id]=ta.value;
+                        save();
+                        if(field.required){
+                            UI.next.disabled = !formValido(steps[key], state.answers[key] || {});
+                        }
+                    };
+                    row.appendChild(ta);
+                } else {
+                    const inp = document.createElement("input");
+                    inp.type = field.type || "text";
+                    if(field.min!==undefined) inp.min = field.min;
+                    if(field.max!==undefined) inp.max = field.max;
+                    inp.value = (current[field.id] !== undefined && current[field.id] !== null) ? current[field.id] : "";
+                    inp.className = "w-full border rounded-xl px-3 py-2 bg-white";
+                    inp.oninput = ()=>{
+                        state.answers[key]=state.answers[key]||{};
+                        state.answers[key][field.id]=inp.value;
+                        save();
+                        UI.next.disabled = !formValido(steps[key], state.answers[key] || {});
+                    };
+                    row.appendChild(inp);
+                }
+
+                UI.answers.appendChild(row);
+            });
+            UI.next.disabled = !formValido(steps[key], state.answers[key] || current || {});
+        }
+
+        if(node.type==="group"){
+            (node.groups||[]).forEach(gr=>{
+                const section = document.createElement("section");
+                section.className="mb-6";
+                const h = document.createElement("h3");
+                h.className="font-semibold mb-2";
+                h.textContent = gr.title;
+                section.appendChild(h);
+
+                if(gr.type==="multi"){
+                    const name = `${key}__${gr.id}`;
+                    const current = new Set(state.answers[name] || []);
+                    const fs = document.createElement("fieldset");
+                    (gr.options||[]).forEach((op,i)=>{
+                        const id = `${name}_${i}`;
+                        const label = document.createElement("label");
+                        label.className = "flex items-center gap-3 border rounded-xl px-4 py-3 mb-2 cursor-pointer hover:border-indigo-500 bg-white";
+                        label.setAttribute("for", id);
+                        const input = document.createElement("input");
+                        input.type = "checkbox"; input.id = id; input.value = op.value;
+                        input.checked = current.has(op.value);
+                        input.className = "w-4 h-4 accent-indigo-600";
+                        input.onchange = ()=>{
+                            if(input.checked) current.add(op.value); else current.delete(op.value);
+                            state.answers[name] = Array.from(current);
+                            save();
+                        };
+                        const span = document.createElement("span"); span.textContent = op.label;
+                        label.appendChild(input);
+                        label.appendChild(span);
+                        fs.appendChild(label);
+                    });
+                    if(gr.edu){
+                        const p=document.createElement("p");
+                        p.className="mt-2 text-sm text-slate-600";
+                        p.textContent=gr.edu;
+                        section.appendChild(p);
+                    }
+                    section.appendChild(fs);
+                }
+
+                if(gr.type==="toggles"){
+                    const name = `${key}__${gr.id}`;
+                    const cur = state.answers[name] || {};
+                    const fs = document.createElement("fieldset");
+                    (gr.toggles||[]).forEach((t)=>{
+                        const id = `${name}_${t.id}`;
+                        const label = document.createElement("label");
+                        label.className = "flex items-center gap-3 border rounded-xl px-4 py-3 mb-2 cursor-pointer hover:border-indigo-500 bg-white";
+                        label.setAttribute("for", id);
+                        const cb = document.createElement("input");
+                        cb.type="checkbox"; cb.id=id; cb.checked = !!cur[t.id];
+                        cb.className = "w-4 h-4 accent-indigo-600";
+                        cb.onchange = ()=>{
+                            const c = state.answers[name] || {};
+                            c[t.id]=cb.checked;
+                            state.answers[name]=c;
+                            save();
+                        };
+                        const span = document.createElement("span");
+                        span.textContent = t.label;
+                        label.appendChild(cb);
+                        label.appendChild(span);
+                        fs.appendChild(label);
+                    });
+                    section.appendChild(fs);
+                }
+
+                if(gr.type==="formRow"){
+                    const name = `${key}__${gr.id}`;
+                    const cur = state.answers[name] || {};
+                    const grid = document.createElement("div");
+                    grid.className="grid grid-cols-1 md:grid-cols-2 gap-4";
+                    (gr.fields||[]).forEach(f=>{
+                        const row = document.createElement("div");
+                        const lab = document.createElement("label");
+                        lab.textContent = f.label;
+                        lab.className="block mb-1";
+                        row.appendChild(lab);
+                        let input;
+
+                        if(f.type==="select"){
+                            input = document.createElement("select");
+                            input.className="w-full border rounded-xl px-3 py-2 bg-white";
+                            (f.options||[]).forEach(o=>{
+                                const op=document.createElement("option");
+                                if(typeof o==="string"){
+                                    op.value=o; op.textContent=o;
+                                } else {
+                                    op.value=o.value; op.textContent=o.label;
+                                }
+                                input.appendChild(op);
+                            });
+                            input.value = (cur[f.id] !== undefined && cur[f.id] !== null)
+                                ? cur[f.id]
+                                : ((f.options && (typeof f.options[0]==="string" ? f.options[0] : f.options[0].value)) || "");
+                            input.onchange = ()=>{
+                                const c = state.answers[name] || {};
+                                c[f.id]=input.value;
+                                state.answers[name]=c;
+                                save();
+                            };
+                            row.appendChild(input);
+                        } else if(f.type==="number" && f.min===0 && f.max===10){
+                            const wrap = document.createElement("div");
+                            wrap.className="space-y-1";
+                            const val = (cur[f.id] !== undefined && cur[f.id] !== null) ? Number(cur[f.id]) : 0;
+                            const slider = document.createElement("input");
+                            slider.type="range";
+                            slider.min="0"; slider.max="10"; slider.step="1";
+                            slider.value = val;
+                            slider.className="w-full accent-indigo-600";
+                            const txt = document.createElement("div");
+                            txt.className="text-xs text-slate-600";
+                            const spanVal = document.createElement("span");
+                            spanVal.textContent = val;
+                            txt.appendChild(spanVal);
+                            txt.insertAdjacentText("beforeend"," / 10");
+                            slider.oninput = ()=>{
+                                const n = Number(slider.value);
+                                spanVal.textContent = n;
+                                const c = state.answers[name] || {};
+                                c[f.id]=n;
+                                state.answers[name]=c;
+                                save();
+                            };
+                            wrap.appendChild(slider);
+                            wrap.appendChild(txt);
+                            row.appendChild(wrap);
+                        } else {
+                            input = document.createElement("input");
+                            input.type = f.type || "text";
+                            if(f.min!==undefined) input.min=f.min;
+                            if(f.max!==undefined) input.max=f.max;
+                            input.value = (cur[f.id] !== undefined && cur[f.id] !== null) ? cur[f.id] : "";
+                            input.className="w-full border rounded-xl px-3 py-2 bg-white";
+                            input.oninput = ()=>{
+                                const c = state.answers[name] || {};
+                                c[f.id]=input.value;
+                                state.answers[name]=c;
+                                save();
+                            };
+                            row.appendChild(input);
+                        }
+                        grid.appendChild(row);
+                    });
+                    section.appendChild(grid);
+                }
+
+                if(gr.type==="single"){
+                    const name = `${key}__${gr.id}`;
+                    const current = state.answers[name] || null;
+                    const fs = document.createElement("fieldset");
+                    (gr.options||[]).forEach((op,i)=>{
+                        const id = `${name}_${i}`;
+                        const label = document.createElement("label");
+                        label.className = "flex items-center gap-3 border rounded-xl px-4 py-3 mb-2 cursor-pointer hover:border-indigo-500 bg-white";
+                        label.setAttribute("for", id);
+                        const input = document.createElement("input");
+                        input.type="radio"; input.name=name; input.id=id; input.value=op.value;
+                        input.checked = current === op.value;
+                        input.className = "w-4 h-4 accent-indigo-600";
+                        input.onchange = ()=>{
+                            state.answers[name] = op.value;
+                            save();
+                            if(key === "objetivosEDisposicao"){
+                                const need = (steps[key].groups||[]).filter(g=>g.type==="single" && g.required);
+                                const ok = need.every(g => !!state.answers[`${key}__${g.id}`]);
+                                UI.next.disabled = !ok;
+                            }
+                        };
+                        const span = document.createElement("span");
+                        span.textContent = op.label;
+                        label.appendChild(input);
+                        label.appendChild(span);
+                        fs.appendChild(label);
+                    });
+                    section.appendChild(fs);
+                }
+
+                UI.answers.appendChild(section);
+            });
+
+            if(key === "objetivosEDisposicao"){
+                const need = (steps[key].groups||[]).filter(g=>g.type==="single" && g.required);
+                const ok = need.every(g => !!state.answers[`${key}__${g.id}`]);
+                UI.next.disabled = !ok;
+            }
+        }
+
+        if(node.type==="router"){
+            recompute();
+            const box = document.createElement("div");
+            box.className="rounded-xl border bg-slate-50 p-4";
+            box.innerHTML = `
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="font-semibold">Resumo de triagem</div>
+          <div class="text-sm text-slate-700 mt-1">
+            Score: <b>${state.score}</b><br>
+            Tags: <code class="text-xs">${Object.keys(state.tags).join(", ") || "nenhuma"}</code>
+          </div>
+        </div>
+        <button id="btnRoute"
+                class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold">
+          Continuar
+        </button>
+      </div>`;
+            UI.answers.appendChild(box);
+            document.getElementById("btnRoute").onclick = ()=>{
+                const out = routeOutcome();
+                const rec = suggestPlan();
+                state.pendingOutcome    = out;
+                state.recommendedPlan   = rec.plan;
+                state.recommendedReason = rec.reason;
+                save();
+                pushToPath("beneficiosPlano");
+                render("beneficiosPlano");
+            };
+            UI.next.disabled = true;
+        }
+
+        if(node.type==="outcome"){
+            const box = document.createElement("div");
+            box.className="rounded-xl border bg-slate-50 p-4";
+            box.innerHTML = `
+        <h3 class="font-semibold text-lg">${node.title}</h3>
+        <p class="mt-1 text-slate-700">${node.body||""}</p>
+      `;
+            UI.answers.appendChild(box);
+        }
+
+        if(node.type==="closing"){
+            const box = document.createElement("div");
+            box.className="rounded-xl border bg-slate-50 p-4";
+            box.innerHTML = `<h3 class="font-semibold text-lg">${node.title}</h3>`;
+            const ul = document.createElement("ul");
+            ul.className="list-disc ml-6 mt-2";
+            (steps.closing.bullets||[]).forEach(b=>{
+                const li=document.createElement("li");
+                li.textContent=b;
+                ul.appendChild(li);
+            });
+            box.appendChild(ul);
+            const ps = document.createElement("p");
+            ps.className="mt-3 text-slate-700";
+            ps.textContent = steps.closing.social;
+            box.appendChild(ps);
+            const ds = document.createElement("p");
+            ds.className="mt-1 text-xs text-slate-500";
+            ds.textContent = steps.closing.disclaimer;
+            box.appendChild(ds);
+            UI.answers.appendChild(box);
+            UI.next.textContent = "Concluir";
+        } else {
+            UI.next.textContent = "Continuar";
+        }
+    }
+
+    function formValido(node, values){
+        return (node.fields||[]).every(f=>{
+            if(!f.required) return true;
+            const v = (values||{})[f.id];
+            if(f.type==="checkboxes") return Array.isArray(v) && v.length>0;
+            if(v === undefined || v === null || v === "") return false;
+            if(f.type==="number"){
+                const n = Number(v); if(Number.isNaN(n)) return false;
+                if(f.min!==undefined && n < f.min) return false;
+                if(f.max!==undefined && n > f.max) return false;
+            }
+            return true;
+        });
+    }
+
+    function pushToPath(nextKey){
+        const cur = state.current;
+        const idx = state.path.indexOf(cur);
+        state.path = state.path.slice(0, idx+1);
+        state.path.push(nextKey);
+        save();
+    }
+
+    function go(dir){
+        const key = state.current;
+        const node = steps[key];
+
+        if(dir>0){
+            if(node.type==="single" && !state.answers[key]) return;
+            if(node.type==="form"){
+                const current = state.answers[key] || {};
+                if(!formValido(node, current)) return;
+            }
+            if(key === "objetivosEDisposicao"){
+                const need = (steps[key].groups||[]).filter(g=>g.type==="single" && g.required);
+                const ok = need.every(g => !!state.answers[`${key}__${g.id}`]);
+                if(!ok) return;
+            }
+        }
+
+        let nextKey = null;
+        if(dir<0){
+            const idx = state.path.indexOf(key);
+            if(idx>0) nextKey = state.path[idx-1];
+        } else {
+            if(["message","form","single","multi","slider","group"].includes(node.type)){
+                if(node.branch){
+                    const v = state.answers[key];
+                    nextKey = (typeof node.branch === "function") ? node.branch(v) : node.branch[v];
+                } else {
+                    nextKey = node.next || null;
+                }
+                if(nextKey){
+                    pushToPath(nextKey);
+                } else if(key==="closing"){
+                    alert("Obrigado! Suas respostas ficaram salvas neste dispositivo.");
+                    return;
+                }
+            } else if(node.type==="outcome"){
+                nextKey = node.next || "perguntasFinais";
+                pushToPath(nextKey);
+            } else if(key==="closing"){
+                alert("Obrigado! Suas respostas ficaram salvas neste dispositivo.");
+                return;
+            }
+        }
+        if(nextKey) render(nextKey);
+    }
+
+    function exportJSON(){
+        const blob = new Blob([JSON.stringify({
+            answers: state.answers,
+            tags: state.tags,
+            score: state.score,
+            path: state.path,
+            pendingOutcome: state.pendingOutcome,
+            recommendedPlan: state.recommendedPlan,
+            recommendedReason: state.recommendedReason
+        }, null, 2)], {type:"application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "pre_avaliacao_dor.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    render(state.path[state.path.length-1]);
+</script>
+</body>
+</html>
